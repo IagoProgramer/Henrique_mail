@@ -5,57 +5,25 @@
     <title>Henrique Mail</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body class="dark-theme">
     <div id="login-page" class="login-container">
         <div class="login-box">
-            <div class="login-logo">
-                <i class="fas fa-envelope-open-text"></i>
-                <h1>Henrique Mail</h1>
-            </div>
+            <h1>Henrique Mail</h1>
             <div id="auth-tabs">
                 <button id="login-tab" class="auth-tab active">Login</button>
                 <button id="register-tab" class="auth-tab">Registrar</button>
             </div>
             <form id="login-form" class="auth-form">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="login-username" placeholder="Nome de Usuário" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="login-password" placeholder="Senha" required>
-                </div>
-                <div class="forgot-password">
-                    <a href="#" class="hidden">Esqueceu sua senha?</a>
-                </div>
-                <button type="submit" class="login-button">
-                    <span>Entrar</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
+                <input type="text" id="login-username" placeholder="Nome de Usuário" required>
+                <input type="password" id="login-password" placeholder="Senha" required>
+                <button type="submit">Entrar</button>
             </form>
             <form id="register-form" class="auth-form hidden">
-                <div class="input-group">
-                    <i class="fas fa-user"></i>
-                    <input type="text" id="register-username" placeholder="Nome de Usuário" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-envelope"></i>
-                    <input type="email" id="register-email" placeholder="Email" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="register-password" placeholder="Senha" required>
-                </div>
-                <div class="input-group">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="confirm-password" placeholder="Confirmar Senha" required>
-                </div>
-                <button type="submit" class="register-button">
-                    <span>Registrar</span>
-                    <i class="fas fa-user-plus"></i>
-                </button>
+                <input type="text" id="register-username" placeholder="Nome de Usuário" required>
+                <input type="password" id="register-password" placeholder="Senha" required>
+                <input type="password" id="confirm-password" placeholder="Confirmar Senha" required>
+                <button type="submit">Registrar</button>
             </form>
             <div id="auth-message" class="message"></div>
         </div>
@@ -84,9 +52,6 @@
                 </button>
                 <button id="perfil-btn" class="sidebar-btn">
                     <i class="fas fa-user-cog"></i> Perfil
-                </button>
-                <button id="usuarios-btn" class="sidebar-btn">
-                    <i class="fas fa-users"></i> Usuários
                 </button>
             </nav>
         </div>
