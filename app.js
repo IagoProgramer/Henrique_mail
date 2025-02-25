@@ -1,51 +1,48 @@
 class HenriqueMail {
     constructor() {
-        // Ensure users array exists in localStorage
-        if (!localStorage.getItem('users')) {
-            localStorage.setItem('users', JSON.stringify([]));
-        }
-
-        // Ensure grupos exists in localStorage
-        if (!localStorage.getItem('grupos')) {
-            localStorage.setItem('grupos', JSON.stringify([]));
-        }
-
+        // Initialize users from localStorage or create an empty array
         this.users = JSON.parse(localStorage.getItem('users') || '[]');
-        this.grupos = JSON.parse(localStorage.getItem('grupos') || '[]');
         this.loggedInUser = null;
-        
         this.initializeApp();
     }
 
     initializeApp() {
-        // Check if user was previously logged in
-        const storedUser = localStorage.getItem('currentUser');
+        // Setup authentication event listeners
+        this.setupAuthEventListeners();
         
-        if (storedUser) {
-            try {
-                this.loggedInUser = JSON.parse(storedUser);
-                this.showMainApp();
-            } catch (error) {
-                console.error("Error parsing stored user:", error);
-                this.setupAuthEventListeners();
-            }
-        } else {
-            this.setupAuthEventListeners();
-        }
-
-        this.initAdvancedThemeToggle();
+        // Check for existing login
+        this.checkPreviousLogin();
     }
 
     setupAuthEventListeners() {
-        document.getElementById('login-tab').addEventListener('click', () => this.switchAuthTab('login'));
-        document.getElementById('register-tab').addEventListener('click', () => this.switchAuthTab('register'));
+        // Login tab switching
+        const loginTab = document.getElementById('login-tab');
+        const registerTab = document.getElementById('register-tab');
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
 
-        document.getElementById('login-form').addEventListener('submit', (e) => {
+        loginTab.addEventListener('click', () => {
+            loginTab.classList.add('active');
+            registerTab.classList.remove('active');
+            loginForm.classList.remove('hidden');
+            registerForm.classList.add('hidden');
+        });
+
+        registerTab.addEventListener('click', () => {
+            loginTab.classList.remove('active');
+            registerTab.classList.add('active');
+            loginForm.classList.add('hidden');
+            registerForm.classList.remove('hidden');
+        });
+
+        // Login form submission
+        loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.login();
         });
 
-        document.getElementById('register-form').addEventListener('submit', (e) => {
+        // Register form submission
+        registerForm.addEventListener('submit', (e) => {
             e.preventDefault();
             this.register();
         });
@@ -53,31 +50,141 @@ class HenriqueMail {
 
     login() {
         const username = document.getElementById('login-username').value.trim();
-        const password = document.getElementById('login-password').value;
+        const password = document.getElementById('login-password').value.trim();
         const messageEl = document.getElementById('auth-message');
 
         // Clear previous messages
         messageEl.textContent = '';
         messageEl.classList.remove('error', 'success');
 
+        // Validate input
+        if (!username || !password) {
+            messageEl.textContent = 'Por favor, preencha todos os campos';
+            messageEl.classList.add('error');
+            return;
+        }
+
         // Find user
-        const user = this.users.find(u => u.username === username && u.password === password);
+        const user = this.users.find(u => 
+            u.username.toLowerCase() === username.toLowerCase() && 
+            u.password === password
+        );
 
         if (user) {
+            // Successful login
             this.loggedInUser = user;
             localStorage.setItem('currentUser', JSON.stringify(user));
+            
+            // Hide login page and show main app
+            document.getElementById('login-page').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            
+            // Initialize main app view
             this.showMainApp();
         } else {
+            // Login failed
             messageEl.textContent = 'Usuário ou senha incorretos';
             messageEl.classList.add('error');
         }
     }
 
+    register() {
+        const username = document.getElementById('register-username').value.trim();
+        const password = document.getElementById('register-password').value.trim();
+        const confirmPassword = document.getElementById('confirm-password').value.trim();
+        const messageEl = document.getElementById('auth-message');
+
+        // Clear previous messages
+        messageEl.textContent = '';
+        messageEl.classList.remove('error', 'success');
+
+        // Validate inputs
+        if (!username || !password || !confirmPassword) {
+            messageEl.textContent = 'Por favor, preencha todos os campos';
+            messageEl.classList.add('error');
+            return;
+        }
+
+        // Check password match
+        if (password !== confirmPassword) {
+            messageEl.textContent = 'As senhas não correspondem';
+            messageEl.classList.add('error');
+            return;
+        }
+
+        // Check if username already exists
+        const userExists = this.users.some(u => 
+            u.username.toLowerCase() === username.toLowerCase()
+        );
+
+        if (userExists) {
+            messageEl.textContent = 'Nome de usuário já existe';
+            messageEl.classList.add('error');
+            return;
+        }
+
+        // Create new user
+        const newUser = {
+            id: Date.now(),
+            username: username,
+            password: password,
+            email: `${username}@henriquemail.com`,
+            profilePicture: this.generateDefaultProfilePicture(),
+            theme: 'dark',
+            emails: [
+                {
+                    id: 1,
+                    remetente: 'Equipe Henrique Mail',
+                    assunto: 'Bem-vindo ao Henrique Mail!',
+                    data: new Date().toLocaleDateString(),
+                    corpo: 'Olá! Bem-vindo ao Henrique Mail. Esperamos que goste da nossa plataforma de email.'
+                }
+            ]
+        };
+
+        // Add user to users array and save to localStorage
+        this.users.push(newUser);
+        localStorage.setItem('users', JSON.stringify(this.users));
+
+        // Show success message and switch to login tab
+        messageEl.textContent = 'Registro realizado com sucesso!';
+        messageEl.classList.add('success');
+
+        // Switch back to login tab
+        document.getElementById('login-tab').click();
+    }
+
+    checkPreviousLogin() {
+        const currentUser = localStorage.getItem('currentUser');
+        
+        if (currentUser) {
+            try {
+                const user = JSON.parse(currentUser);
+                this.loggedInUser = user;
+                
+                // Hide login page and show main app
+                document.getElementById('login-page').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                
+                // Initialize main app view
+                this.showMainApp();
+            } catch (error) {
+                console.error('Error parsing current user:', error);
+                localStorage.removeItem('currentUser');
+            }
+        }
+    }
+
+    generateDefaultProfilePicture() {
+        // Generate a simple SVG profile picture
+        const colors = ['#0078d4', '#6264a7', '#13a10e', '#ff4d4d'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" fill="${randomColor}"><circle cx="50" cy="50" r="50"/></svg>`;
+    }
+
     showMainApp() {
-        document.getElementById('login-page').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
         document.getElementById('logged-username').textContent = this.loggedInUser.username;
-        this.renderCaixaEntrada();
+        this.renderCaixaEntrada(); // Default view after login
         this.setupMainAppEventListeners();
         this.setupProfileHeaderInteractions();
     }
@@ -90,7 +197,6 @@ class HenriqueMail {
         document.getElementById('grupos-btn').addEventListener('click', () => this.renderGrupos());
         document.getElementById('perfil-btn').addEventListener('click', () => this.renderProfileSettings());
         document.getElementById('contatos-btn').addEventListener('click', () => this.renderContatos());
-        document.getElementById('usuarios-btn').addEventListener('click', () => this.renderUsersList());
 
         // Logout
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
@@ -116,107 +222,7 @@ class HenriqueMail {
         document.getElementById('login-tab').click(); // Reset to login tab
     }
 
-    switchAuthTab(tab) {
-        const loginTab = document.getElementById('login-tab');
-        const registerTab = document.getElementById('register-tab');
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-
-        if (tab === 'login') {
-            loginTab.classList.add('active');
-            registerTab.classList.remove('active');
-            loginForm.classList.remove('hidden');
-            registerForm.classList.add('hidden');
-        } else {
-            loginTab.classList.remove('active');
-            registerTab.classList.add('active');
-            loginForm.classList.add('hidden');
-            registerForm.classList.remove('hidden');
-        }
-    }
-
-    register() {
-        const username = document.getElementById('register-username').value.trim();
-        const email = document.getElementById('register-email').value.trim();
-        const password = document.getElementById('register-password').value;
-        const confirmPassword = document.getElementById('confirm-password').value;
-        const messageEl = document.getElementById('auth-message');
-
-        // Clear previous messages
-        messageEl.textContent = '';
-        messageEl.classList.remove('error', 'success');
-
-        // Validation
-        if (password !== confirmPassword) {
-            messageEl.textContent = 'Senhas não correspondem';
-            messageEl.classList.add('error');
-            return;
-        }
-
-        // Validate username and email
-        if (username.length < 3) {
-            messageEl.textContent = 'Nome de usuário deve ter pelo menos 3 caracteres';
-            messageEl.classList.add('error');
-            return;
-        }
-
-        // Check if user already exists
-        const existingUsers = JSON.parse(localStorage.getItem('users') || '[]');
-        const userExists = existingUsers.some(user => 
-            user.username === username || user.email === email
-        );
-
-        if (userExists) {
-            messageEl.textContent = 'Nome de usuário ou email já existem';
-            messageEl.classList.add('error');
-            return;
-        }
-
-        // Create new user with default welcome email
-        const newUser = { 
-            id: Date.now(),
-            username, 
-            email,
-            password,
-            profilePicture: this.generateDefaultProfilePicture(),
-            bio: '',
-            theme: 'dark',
-            contacts: [],
-            emails: [
-                {
-                    id: 1,
-                    remetente: 'Equipe Henrique Mail',
-                    assunto: 'Bem-vindo ao Henrique Mail!',
-                    data: new Date().toLocaleDateString(),
-                    hora: new Date().toLocaleTimeString(),
-                    corpo: `Olá ${username}! Bem-vindo ao Henrique Mail. Esperamos que goste da nossa plataforma de email.`,
-                    lido: false,
-                    tipo: 'recebido'
-                }
-            ],
-            emailsEnviados: [] 
-        };
-
-        // Add new user
-        existingUsers.push(newUser);
-        localStorage.setItem('users', JSON.stringify(existingUsers));
-
-        messageEl.textContent = 'Registro bem-sucedido';
-        messageEl.classList.add('success');
-
-        // Clear form and switch to login
-        document.getElementById('register-form').reset();
-        this.switchAuthTab('login');
-    }
-
-    generateDefaultProfilePicture() {
-        const colors = ['#0078d4', '#6264a7', '#13a10e', '#ff4d4d'];
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" fill="${randomColor}"><circle cx="50" cy="50" r="50"/></svg>`;
-    }
-
     renderProfileSettings() {
-        this.updateActiveNavButton('perfil-btn');
         const user = this.loggedInUser;
         const content = `
             <div class="profile-settings">
@@ -257,7 +263,6 @@ class HenriqueMail {
         const changeProfilePictureBtn = document.getElementById('change-profile-picture');
         const profilePictureUpload = document.getElementById('profile-picture-upload');
         const profileForm = document.getElementById('profile-form');
-        const profilePictureImg = document.querySelector('.profile-picture');
 
         // Change profile picture
         changeProfilePictureBtn.addEventListener('click', () => {
@@ -267,51 +272,13 @@ class HenriqueMail {
         profilePictureUpload.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
-                // File type validation
-                const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'image/webp'];
-                if (!validTypes.includes(file.type)) {
-                    this.showNotification('Tipo de arquivo inválido. Por favor, selecione uma imagem.');
-                    return;
-                }
-
-                // File size validation (max 5MB)
-                if (file.size > 5 * 1024 * 1024) {
-                    this.showNotification('Tamanho da imagem muito grande. Máximo de 5MB.');
-                    return;
-                }
-
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    try {
-                        // Update profile picture in multiple places
-                        if (profilePictureImg) {
-                            profilePictureImg.src = event.target.result;
-                        }
-
-                        const headerProfilePic = document.getElementById('header-profile-pic');
-                        if (headerProfilePic) {
-                            headerProfilePic.src = event.target.result;
-                        }
-
-                        // Ensure loggedInUser exists before modifying
-                        if (this.loggedInUser) {
-                            this.loggedInUser.profilePicture = event.target.result;
-                            this.updateUserInStorage();
-                            this.showNotification('Foto de perfil atualizada com sucesso!');
-                        } else {
-                            throw new Error('Usuário não encontrado');
-                        }
-                    } catch (error) {
-                        console.error('Erro ao atualizar foto de perfil:', error);
-                        this.showNotification('Erro ao atualizar foto de perfil');
-                    }
+                    const img = document.querySelector('.profile-picture');
+                    img.src = event.target.result;
+                    this.loggedInUser.profilePicture = event.target.result;
+                    this.updateUserInStorage();
                 };
-                
-                reader.onerror = (error) => {
-                    console.error('Erro ao ler arquivo:', error);
-                    this.showNotification('Erro ao carregar imagem');
-                };
-                
                 reader.readAsDataURL(file);
             }
         });
@@ -322,22 +289,16 @@ class HenriqueMail {
             const bio = document.getElementById('bio').value;
             const theme = document.getElementById('theme-select').value;
 
-            // Ensure loggedInUser exists before modifying
-            if (this.loggedInUser) {
-                // Update user profile
-                this.loggedInUser.bio = bio;
-                this.loggedInUser.theme = theme;
-                this.updateUserInStorage();
+            // Update user profile
+            this.loggedInUser.bio = bio;
+            this.loggedInUser.theme = theme;
+            this.updateUserInStorage();
 
-                // Apply theme
-                this.applyTheme(theme);
+            // Apply theme
+            this.applyTheme(theme);
 
-                // Show success message
-                this.showNotification('Perfil atualizado com sucesso!');
-            } else {
-                console.error('No logged-in user found');
-                this.showNotification('Erro ao atualizar perfil');
-            }
+            // Show success message
+            this.showNotification('Perfil atualizado com sucesso!');
         });
     }
 
@@ -490,12 +451,6 @@ class HenriqueMail {
         const assunto = document.getElementById('email-assunto').value.trim();
         const corpo = document.getElementById('email-corpo').value.trim();
 
-        // Validate inputs
-        if (!destinatario || !assunto || !corpo) {
-            this.showNotification('Por favor, preencha todos os campos');
-            return;
-        }
-
         // Find recipient
         const recipientUser = this.users.find(u => u.username === destinatario);
 
@@ -504,17 +459,8 @@ class HenriqueMail {
             return;
         }
 
-        // Validate image attachment
-        if (imagemAnexada) {
-            const maxImageSize = 5 * 1024 * 1024; // 5MB
-            if (imagemAnexada.length > maxImageSize) {
-                this.showNotification('Imagem muito grande. Máximo de 5MB.');
-                return;
-            }
-        }
-
-        // Create email object for recipient
-        const emailParaDestinatario = {
+        // Create email object
+        const novoEmail = {
             id: Date.now(),
             remetente: this.loggedInUser.username,
             destinatario: destinatario,
@@ -522,55 +468,27 @@ class HenriqueMail {
             corpo: corpo,
             imagem: imagemAnexada, // Add image attachment
             data: new Date().toLocaleDateString(),
-            hora: new Date().toLocaleTimeString(),
-            lido: false,
-            tipo: 'recebido'
+            lido: false
         };
 
-        // Create email object for sender's sent emails
-        const emailParaRemetente = {
-            ...emailParaDestinatario,
-            tipo: 'enviado'
-        };
-
-        // Ensure emails arrays exist
+        // Add to recipient's emails
         if (!recipientUser.emails) {
             recipientUser.emails = [];
         }
-        if (!this.loggedInUser.emailsEnviados) {
-            this.loggedInUser.emailsEnviados = [];
-        }
-
-        // Add emails to respective arrays
-        recipientUser.emails.unshift(emailParaDestinatario);
-        this.loggedInUser.emailsEnviados.unshift(emailParaRemetente);
+        recipientUser.emails.push(novoEmail);
 
         // Update users in storage
-        this.updateUserInStorage();
-        this.updateRecipientsInStorage(recipientUser);
+        const users = this.users.map(u => 
+            u.username === recipientUser.username ? recipientUser : u
+        );
+        localStorage.setItem('users', JSON.stringify(users));
 
         // Show success notification
-        this.showNotification(`Email enviado para ${destinatario}`);
+        this.showNotification('Email enviado com sucesso!');
 
         // Clear form
         document.getElementById('compose-email-form').reset();
-        const imagePreview = document.getElementById('email-image-preview');
-        if (imagePreview) {
-            imagePreview.classList.add('hidden');
-            imagePreview.src = '';
-        }
-
-        // Re-render appropriate views
-        this.renderCaixaEntrada();
-        this.renderEmailsEnviados();
-    }
-
-    updateRecipientsInStorage(recipient) {
-        const userIndex = this.users.findIndex(u => u.username === recipient.username);
-        if (userIndex !== -1) {
-            this.users[userIndex] = recipient;
-            localStorage.setItem('users', JSON.stringify(this.users));
-        }
+        document.getElementById('email-image-preview').classList.add('hidden');
     }
 
     renderCaixaEntrada() {
@@ -578,70 +496,46 @@ class HenriqueMail {
         const content = `
             <div class="caixa-entrada">
                 <h2>Caixa de Entrada</h2>
-                ${this.renderEmailList('recebido')}
+                ${this.renderEmailList()}
             </div>
         `;
         document.getElementById('app-content').innerHTML = content;
 
         // Add click event to email items to show email details
         document.querySelectorAll('.email-item').forEach(item => {
-            item.addEventListener('click', () => this.showEmailDetails(parseInt(item.dataset.emailId), 'recebido'));
+            item.addEventListener('click', () => this.showEmailDetails(item.dataset.emailId));
         });
     }
 
-    renderEmailsEnviados() {
-        this.updateActiveNavButton('enviados-btn');
-        const content = `
-            <div class="emails-enviados">
-                <h2>Emails Enviados</h2>
-                ${this.renderEmailList('enviado')}
-            </div>
-        `;
-        document.getElementById('app-content').innerHTML = content;
-
-        // Add click event to email items to show email details
-        document.querySelectorAll('.email-item').forEach(item => {
-            item.addEventListener('click', () => this.showEmailDetails(parseInt(item.dataset.emailId), 'enviado'));
-        });
-    }
-
-    renderEmailList(tipo) {
-        const userEmails = tipo === 'recebido' 
-            ? (this.loggedInUser?.emails || [])
-            : (this.loggedInUser?.emailsEnviados || []);
+    renderEmailList() {
+        // Ensure emails exists and is an array
+        const userEmails = (this.loggedInUser && this.loggedInUser.emails) ? this.loggedInUser.emails : [];
         
         if (userEmails.length === 0) {
-            return `<p>Nenhum email ${tipo === 'recebido' ? 'recebido' : 'enviado'}</p>`;
+            return '<p>Nenhum email recebido</p>';
         }
 
         return userEmails.map(email => `
             <div class="email-item" data-email-id="${email.id}">
                 <div class="email-item-details">
-                    <div class="email-item-sender">
-                        ${tipo === 'recebido' ? email.remetente : email.destinatario}
-                    </div>
+                    <div class="email-item-sender">${email.remetente}</div>
                     <div class="email-item-subject">${email.assunto}</div>
                 </div>
-                <div class="email-item-date">${email.data} ${email.hora}</div>
+                <div class="email-item-date">${email.data}</div>
             </div>
         `).join('');
     }
 
-    showEmailDetails(emailId, tipo) {
-        const userEmails = tipo === 'recebido' 
-            ? (this.loggedInUser?.emails || [])
-            : (this.loggedInUser?.emailsEnviados || []);
-        
-        const email = userEmails.find(e => e.id === emailId);
-        
+    showEmailDetails(emailId) {
+        const email = (this.loggedInUser && this.loggedInUser.emails) ? this.loggedInUser.emails.find(e => e.id === parseInt(emailId)) : null;
         if (email) {
             const content = `
                 <div class="email-details">
                     <div class="email-header">
                         <h2>${email.assunto}</h2>
                         <div class="email-meta">
-                            <strong>${tipo === 'recebido' ? 'De: ' + email.remetente : 'Para: ' + email.destinatario}</strong>
-                            <small>${email.data} ${email.hora}</small>
+                            <strong>De: ${email.remetente}</strong>
+                            <small>${email.data}</small>
                         </div>
                     </div>
                     <div class="email-body">
@@ -649,23 +543,30 @@ class HenriqueMail {
                         ${email.imagem ? `<img src="${email.imagem}" alt="Imagem anexada" class="email-attached-image">` : ''}
                     </div>
                     <div class="email-actions">
-                        <button id="back-to-inbox" class="btn-secondary">
-                            Voltar para ${tipo === 'recebido' ? 'Caixa de Entrada' : 'Emails Enviados'}
-                        </button>
+                        <button id="back-to-inbox" class="btn-secondary">Voltar para Caixa de Entrada</button>
                         <button id="reply-email" class="btn-primary">Responder</button>
                     </div>
                 </div>
             `;
             document.getElementById('app-content').innerHTML = content;
 
-            document.getElementById('back-to-inbox').addEventListener('click', () => {
-                tipo === 'recebido' ? this.renderCaixaEntrada() : this.renderEmailsEnviados();
-            });
+            document.getElementById('back-to-inbox').addEventListener('click', () => this.renderCaixaEntrada());
             
             document.getElementById('reply-email').addEventListener('click', () => {
-                this.renderComporEmail(tipo === 'recebido' ? email.remetente : email.destinatario);
+                this.renderComporEmail(email.remetente);
             });
         }
+    }
+
+    renderEmailsEnviados() {
+        this.updateActiveNavButton('enviados-btn');
+        const content = `
+            <div class="emails-enviados">
+                <h2>Emails Enviados</h2>
+                <p>Nenhum email enviado</p>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
     }
 
     renderGrupos() {
@@ -798,7 +699,7 @@ class HenriqueMail {
     }
 
     updateActiveNavButton(activeButtonId) {
-        const buttons = ['compor-btn', 'caixa-entrada-btn', 'enviados-btn', 'grupos-btn', 'perfil-btn', 'contatos-btn', 'usuarios-btn'];
+        const buttons = ['compor-btn', 'caixa-entrada-btn', 'enviados-btn', 'grupos-btn', 'perfil-btn', 'contatos-btn'];
         buttons.forEach(btnId => {
             const btn = document.getElementById(btnId);
             if (btnId === activeButtonId) {
@@ -820,128 +721,27 @@ class HenriqueMail {
         }, 3000);
     }
 
-    renderUsersList() {
-        this.updateActiveNavButton('usuarios-btn');
-        const content = `
-            <div class="usuarios-container">
-                <h2>Usuários Registrados</h2>
-                <div class="usuarios-lista">
-                    ${this.renderUsersListContent()}
-                </div>
-            </div>
-        `;
-        document.getElementById('app-content').innerHTML = content;
-        this.setupUserInteractions();
-    }
-
-    renderUsersListContent() {
-        // Exclude the current logged-in user from the list
-        const filteredUsers = this.users.filter(user => 
-            user.username !== this.loggedInUser.username
-        );
-
-        if (filteredUsers.length === 0) {
-            return '<p>Nenhum outro usuário encontrado</p>';
-        }
-
-        return filteredUsers.map(user => `
-            <div class="usuario-item" data-username="${user.username}">
-                <img src="${user.profilePicture}" alt="${user.username}" class="usuario-avatar">
-                <div class="usuario-info">
-                    <h3>${user.username}</h3>
-                    <p>${user.email}</p>
-                </div>
-                <div class="usuario-acoes">
-                    <button class="btn-primary enviar-email-btn">Enviar Email</button>
-                    <button class="btn-secondary ver-perfil-btn">Ver Perfil</button>
-                </div>
-            </div>
-        `).join('');
-    }
-
-    setupUserInteractions() {
-        const usuariosList = document.querySelector('.usuarios-lista');
-        
-        usuariosList.addEventListener('click', (e) => {
-            const usuarioItem = e.target.closest('.usuario-item');
-            if (!usuarioItem) return;
-
-            const username = usuarioItem.dataset.username;
-            const user = this.users.find(u => u.username === username);
-
-            if (e.target.classList.contains('enviar-email-btn')) {
-                // Open email compose with selected user
-                this.renderComporEmail(username);
-            }
-
-            if (e.target.classList.contains('ver-perfil-btn')) {
-                // Show user profile
-                this.showUserProfile(user);
-            }
-        });
-    }
-
-    showUserProfile(user) {
-        const content = `
-            <div class="usuario-perfil-detalhes">
-                <div class="perfil-header">
-                    <img src="${user.profilePicture}" alt="${user.username}" class="perfil-avatar">
-                    <h2>${user.username}</h2>
-                    <p>${user.email}</p>
-                </div>
-                <div class="perfil-bio">
-                    <h3>Biografia</h3>
-                    <p>${user.bio || 'Nenhuma biografia adicionada'}</p>
-                </div>
-                <div class="perfil-acoes">
-                    <button class="btn-primary enviar-email-btn" data-username="${user.username}">
-                        Enviar Email
-                    </button>
-                    <button class="btn-secondary adicionar-contato-btn" data-username="${user.username}">
-                        Adicionar aos Contatos
-                    </button>
-                </div>
-            </div>
-        `;
-        document.getElementById('app-content').innerHTML = content;
-
-        // Add event listeners for actions
-        document.querySelector('.enviar-email-btn').addEventListener('click', () => {
-            this.renderComporEmail(user.username);
-        });
-
-        document.querySelector('.adicionar-contato-btn').addEventListener('click', () => {
-            this.adicionarContatoFromProfile(user);
-        });
-    }
-
-    adicionarContatoFromProfile(user) {
-        if (!this.loggedInUser.contacts) {
-            this.loggedInUser.contacts = [];
-        }
-        
-        const contactExists = this.loggedInUser.contacts.some(c => c.username === user.username);
-        if (!contactExists) {
-            this.loggedInUser.contacts.push({
-                username: user.username,
-                email: user.email,
-                profilePicture: user.profilePicture
-            });
-            this.updateUserInStorage();
-            this.showNotification(`${user.username} adicionado aos contatos`);
-        } else {
-            this.showNotification('Contato já existe');
-        }
-    }
-
     setupRichEmailCompose() {
-        // Safe method to set up email composition
+        // Use a setTimeout to ensure the DOM is fully loaded
         setTimeout(() => {
             const composeForm = document.getElementById('compose-email-form');
             if (composeForm) {
                 composeForm.addEventListener('input', this.autoResizeTextarea);
+                
+                // Optional: Add file attachment capability
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.multiple = true;
+                fileInput.style.display = 'none';
+                composeForm.appendChild(fileInput);
+
+                const attachButton = document.createElement('button');
+                attachButton.type = 'button';
+                attachButton.innerHTML = '<i class="fas fa-paperclip"></i> Anexar';
+                attachButton.addEventListener('click', () => fileInput.click());
+                composeForm.insertBefore(attachButton, composeForm.lastChild);
             }
-        }, 200);
+        }, 100);
     }
 
     autoResizeTextarea(event) {
@@ -1007,10 +807,8 @@ class HenriqueMail {
         const profileDropdownSettings = document.getElementById('profile-dropdown-settings');
         const profileDropdownLogout = document.getElementById('profile-dropdown-logout');
 
-        // Safe profile picture setting
-        if (headerProfilePic && this.loggedInUser) {
-            headerProfilePic.src = this.loggedInUser.profilePicture || this.generateDefaultProfilePicture();
-        }
+        // Set profile picture
+        headerProfilePic.src = this.loggedInUser.profilePicture || this.generateDefaultProfilePicture();
 
         // Toggle dropdown
         headerProfilePic.addEventListener('click', () => {
@@ -1038,11 +836,7 @@ class HenriqueMail {
     }
 }
 
-// Initialize the application with error handling
+// Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        window.henriqueMail = new HenriqueMail();
-    } catch (error) {
-        console.error("Error initializing HenriqueMail:", error);
-    }
+    window.henriqueMail = new HenriqueMail();
 });
