@@ -1,17 +1,67 @@
 class HenriqueMail {
     constructor() {
-        // Initialize users from localStorage or create an empty array
+        // Ensure clean initialization
         this.users = JSON.parse(localStorage.getItem('users') || '[]');
         this.loggedInUser = null;
+        this.grupos = []; // Initialize grupos as an empty array
+        this.initializeAdminUser();
         this.initializeApp();
     }
 
+    initializeAdminUser() {
+        // Check if admin user exists, if not create
+        const adminUser = this.users.find(u => u.username === 'iago05');
+        if (!adminUser) {
+            const adminUserData = {
+                id: Date.now(),
+                username: 'iago05',
+                password: 'admin123', // Set a default admin password
+                displayName: 'Iago Admin',
+                email: 'iago05@henriquemail.com',
+                profilePicture: this.generateDefaultProfilePicture(),
+                role: 'admin', // Add admin role
+                theme: 'dark',
+                permissions: {
+                    manageUsers: true,
+                    viewAllEmails: true,
+                    deleteUsers: true,
+                    editUserProfiles: true
+                }
+            };
+
+            this.users.push(adminUserData);
+            localStorage.setItem('users', JSON.stringify(this.users));
+        } else {
+            // Ensure admin user has full permissions
+            adminUser.role = 'admin';
+            adminUser.permissions = {
+                manageUsers: true,
+                viewAllEmails: true,
+                deleteUsers: true,
+                editUserProfiles: true
+            };
+            
+            // Update the admin user in localStorage
+            const userIndex = this.users.findIndex(u => u.username === 'iago05');
+            this.users[userIndex] = adminUser;
+            localStorage.setItem('users', JSON.stringify(this.users));
+        }
+    }
+
     initializeApp() {
-        // Setup authentication event listeners
-        this.setupAuthEventListeners();
-        
-        // Check for existing login
-        this.checkPreviousLogin();
+        try {
+            this.setupAuthEventListeners();
+            this.checkPreviousLogin();
+            this.setupProfilePictureGeneration();
+            this.carregarGrupos(); // Ensure grupos are loaded
+            
+            // Add error handling
+            window.addEventListener('error', (event) => {
+                this.handleUnexpectedError(event.error);
+            });
+        } catch (error) {
+            this.handleUnexpectedError(error);
+        }
     }
 
     setupAuthEventListeners() {
@@ -92,6 +142,9 @@ class HenriqueMail {
         const username = document.getElementById('register-username').value.trim();
         const password = document.getElementById('register-password').value.trim();
         const confirmPassword = document.getElementById('confirm-password').value.trim();
+        const displayName = document.getElementById('register-display-name').value.trim();
+        const bio = document.getElementById('register-bio').value.trim();
+        const profilePicture = document.getElementById('register-profile-picture').src;
         const messageEl = document.getElementById('auth-message');
 
         // Clear previous messages
@@ -99,8 +152,8 @@ class HenriqueMail {
         messageEl.classList.remove('error', 'success');
 
         // Validate inputs
-        if (!username || !password || !confirmPassword) {
-            messageEl.textContent = 'Por favor, preencha todos os campos';
+        if (!username || !password || !confirmPassword || !displayName) {
+            messageEl.textContent = 'Por favor, preencha todos os campos obrigatórios';
             messageEl.classList.add('error');
             return;
         }
@@ -128,9 +181,11 @@ class HenriqueMail {
             id: Date.now(),
             username: username,
             password: password,
+            displayName: displayName,
             email: `${username}@henriquemail.com`,
-            profilePicture: this.generateDefaultProfilePicture(),
+            profilePicture: profilePicture || this.generateRandomProfilePicture(),
             theme: 'dark',
+            bio: bio,
             emails: [
                 {
                     id: 1,
@@ -152,6 +207,62 @@ class HenriqueMail {
 
         // Switch back to login tab
         document.getElementById('login-tab').click();
+    }
+
+    setupProfilePictureGeneration() {
+        const generateProfileBtn = document.getElementById('generate-profile-btn');
+        const profilePictureUpload = document.getElementById('profile-picture-upload');
+        const profilePreview = document.getElementById('register-profile-picture');
+
+        // Generate random profile picture
+        generateProfileBtn.addEventListener('click', () => {
+            profilePreview.src = this.generateRandomProfilePicture();
+        });
+
+        // Upload custom profile picture
+        profilePictureUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    profilePreview.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Set default profile picture on page load
+        profilePreview.src = this.generateRandomProfilePicture();
+    }
+
+    generateRandomProfilePicture() {
+        // Generate a more detailed SVG profile picture
+        const colors = [
+            '#0078d4', '#6264a7', '#13a10e', '#ff4d4d', 
+            '#ff6b6b', '#4ecdc4', '#45b7d1', '#f95738'
+        ];
+        const bgColor = colors[Math.floor(Math.random() * colors.length)];
+        const initials = this.generateInitials();
+
+        return `data:image/svg+xml;utf8,
+            <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+                <rect width="200" height="200" fill="${bgColor}"/>
+                <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
+                      fill="white" font-size="80" font-family="Arial, sans-serif">
+                    ${initials}
+                </text>
+            </svg>`;
+    }
+
+    generateInitials() {
+        // Get initials from username or display a random letter
+        const registerUsername = document.getElementById('register-username');
+        if (registerUsername && registerUsername.value.trim()) {
+            return registerUsername.value.trim()[0].toUpperCase();
+        }
+        
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        return letters[Math.floor(Math.random() * letters.length)];
     }
 
     checkPreviousLogin() {
@@ -176,10 +287,7 @@ class HenriqueMail {
     }
 
     generateDefaultProfilePicture() {
-        // Generate a simple SVG profile picture
-        const colors = ['#0078d4', '#6264a7', '#13a10e', '#ff4d4d'];
-        const randomColor = colors[Math.floor(Math.random() * colors.length)];
-        return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100" fill="${randomColor}"><circle cx="50" cy="50" r="50"/></svg>`;
+        return this.generateRandomProfilePicture();
     }
 
     showMainApp() {
@@ -187,6 +295,11 @@ class HenriqueMail {
         this.renderCaixaEntrada(); // Default view after login
         this.setupMainAppEventListeners();
         this.setupProfileHeaderInteractions();
+
+        // Add admin-specific functionality if the user is an admin
+        if (this.loggedInUser.role === 'admin') {
+            this.setupAdminFeatures();
+        }
     }
 
     setupMainAppEventListeners() {
@@ -197,6 +310,7 @@ class HenriqueMail {
         document.getElementById('grupos-btn').addEventListener('click', () => this.renderGrupos());
         document.getElementById('perfil-btn').addEventListener('click', () => this.renderProfileSettings());
         document.getElementById('contatos-btn').addEventListener('click', () => this.renderContatos());
+        document.getElementById('usuarios-btn').addEventListener('click', () => this.renderTodosUsuarios());
 
         // Logout
         document.getElementById('logout-btn').addEventListener('click', () => this.logout());
@@ -225,80 +339,201 @@ class HenriqueMail {
     renderProfileSettings() {
         const user = this.loggedInUser;
         const content = `
-            <div class="profile-settings">
-                <h2>Configurações de Perfil</h2>
-                <div class="profile-header">
-                    <div class="profile-picture-container">
-                        <img src="${user.profilePicture}" alt="Profile Picture" class="profile-picture">
-                        <input type="file" id="profile-picture-upload" accept="image/*" class="hidden">
-                        <button id="change-profile-picture" class="btn-secondary">Alterar Foto</button>
+            <div class="profile-settings-container">
+                <div class="profile-settings-header">
+                    <h2>Configurações de Perfil</h2>
+                </div>
+                <div class="profile-settings-content">
+                    <div class="profile-preview-section">
+                        <div class="profile-avatar-container">
+                            <img src="${user.profilePicture}" alt="Profile Picture" class="profile-avatar-large">
+                            <div class="avatar-overlay">
+                                <label for="avatar-upload" class="avatar-edit-btn">
+                                    <i class="fas fa-camera"></i>
+                                </label>
+                                <input type="file" id="avatar-upload" accept="image/*" class="hidden">
+                            </div>
+                        </div>
+                        <div class="profile-basic-info">
+                            <h3>${user.displayName}</h3>
+                            <p>${user.email}</p>
+                        </div>
                     </div>
-                    <div class="profile-info">
-                        <h3>${user.username}</h3>
-                        <p>${user.email}</p>
+                    
+                    <form id="profile-details-form">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="display-name">Nome de Exibição</label>
+                                <input type="text" id="display-name" value="${user.displayName}" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="username">Nome de Usuário</label>
+                                <input type="text" id="username" value="${user.username}" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" value="${user.email}" readonly>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bio">Biografia</label>
+                                <textarea id="bio" placeholder="Conte sobre você">${user.bio || ''}</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="theme-select">Tema</label>
+                                <select id="theme-select">
+                                    <option value="dark" ${user.theme === 'dark' ? 'selected' : ''}>Escuro</option>
+                                    <option value="light" ${user.theme === 'light' ? 'selected' : ''}>Claro</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="language-select">Idioma</label>
+                                <select id="language-select">
+                                    <option value="pt-BR" selected>Português (Brasil)</option>
+                                    <option value="en-US">English (US)</option>
+                                    <option value="es-ES">Español</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-actions">
+                            <button type="submit" class="btn-primary">Salvar Alterações</button>
+                            <button type="button" id="change-password-btn" class="btn-secondary">Alterar Senha</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="change-password-modal" class="modal hidden">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <h3>Alterar Senha</h3>
+                        <form id="change-password-form">
+                            <div class="form-group">
+                                <label for="current-password">Senha Atual</label>
+                                <input type="password" id="current-password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-password">Nova Senha</label>
+                                <input type="password" id="new-password" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm-new-password">Confirmar Nova Senha</label>
+                                <input type="password" id="confirm-new-password" required>
+                            </div>
+                            <button type="submit" class="btn-primary">Alterar Senha</button>
+                        </form>
                     </div>
                 </div>
-                <form id="profile-form">
-                    <div class="form-group">
-                        <label for="bio">Biografia</label>
-                        <textarea id="bio" placeholder="Conte um pouco sobre você">${user.bio || ''}</textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="theme-select">Tema</label>
-                        <select id="theme-select">
-                            <option value="dark" ${user.theme === 'dark' ? 'selected' : ''}>Escuro</option>
-                            <option value="light" ${user.theme === 'light' ? 'selected' : ''}>Claro</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn-primary">Salvar Alterações</button>
-                </form>
             </div>
         `;
         document.getElementById('app-content').innerHTML = content;
-        
-        this.setupProfileEventListeners();
+        this.setupProfileSettingsEventListeners();
     }
 
-    setupProfileEventListeners() {
-        const changeProfilePictureBtn = document.getElementById('change-profile-picture');
-        const profilePictureUpload = document.getElementById('profile-picture-upload');
-        const profileForm = document.getElementById('profile-form');
+    setupProfileSettingsEventListeners() {
+        const avatarUpload = document.getElementById('avatar-upload');
+        const profileAvatar = document.querySelector('.profile-avatar-large');
+        const profileForm = document.getElementById('profile-details-form');
+        const changePasswordBtn = document.getElementById('change-password-btn');
+        const changePasswordModal = document.getElementById('change-password-modal');
+        const closeModalBtn = changePasswordModal.querySelector('.close-modal');
+        const changePasswordForm = document.getElementById('change-password-form');
 
-        // Change profile picture
-        changeProfilePictureBtn.addEventListener('click', () => {
-            profilePictureUpload.click();
-        });
-
-        profilePictureUpload.addEventListener('change', (e) => {
+        // Avatar upload
+        avatarUpload.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    const img = document.querySelector('.profile-picture');
-                    img.src = event.target.result;
-                    this.loggedInUser.profilePicture = event.target.result;
-                    this.updateUserInStorage();
+                    // Added null checks
+                    if (profileAvatar) {
+                        profileAvatar.src = event.target.result;
+                    }
+                    
+                    if (this.loggedInUser) {
+                        this.loggedInUser.profilePicture = event.target.result;
+                        this.updateUserInStorage();
+                    }
+                    
+                    // Update header profile pic
+                    const headerProfilePic = document.getElementById('header-profile-pic');
+                    if (headerProfilePic) {
+                        headerProfilePic.src = event.target.result;
+                    }
                 };
+                
+                // Error handling for file reading
+                reader.onerror = (error) => {
+                    console.error('Error reading file:', error);
+                    this.showNotification('Erro ao carregar imagem', 'error');
+                };
+                
                 reader.readAsDataURL(file);
             }
         });
 
-        // Save profile changes
+        // Profile details form submission
         profileForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const bio = document.getElementById('bio').value;
+            
+            const displayName = document.getElementById('display-name').value.trim();
+            const bio = document.getElementById('bio').value.trim();
             const theme = document.getElementById('theme-select').value;
+            const language = document.getElementById('language-select').value;
 
             // Update user profile
+            this.loggedInUser.displayName = displayName;
             this.loggedInUser.bio = bio;
             this.loggedInUser.theme = theme;
+            this.loggedInUser.language = language;
+
             this.updateUserInStorage();
-
-            // Apply theme
             this.applyTheme(theme);
-
-            // Show success message
             this.showNotification('Perfil atualizado com sucesso!');
+        });
+
+        // Change password modal
+        changePasswordBtn.addEventListener('click', () => {
+            changePasswordModal.classList.remove('hidden');
+        });
+
+        closeModalBtn.addEventListener('click', () => {
+            changePasswordModal.classList.add('hidden');
+        });
+
+        // Change password form submission
+        changePasswordForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmNewPassword = document.getElementById('confirm-new-password').value;
+
+            // Basic validation
+            if (currentPassword !== this.loggedInUser.password) {
+                this.showNotification('Senha atual incorreta', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmNewPassword) {
+                this.showNotification('Novas senhas não correspondem', 'error');
+                return;
+            }
+
+            // Update password
+            this.loggedInUser.password = newPassword;
+            this.updateUserInStorage();
+            
+            // Close modal and show success
+            changePasswordModal.classList.add('hidden');
+            this.showNotification('Senha alterada com sucesso!');
+            
+            // Reset form
+            changePasswordForm.reset();
         });
     }
 
@@ -385,7 +620,7 @@ class HenriqueMail {
                 } else {
                     this.showNotification('Usuário não encontrado');
                 }
-                novoContatoInput.value = '';
+                novoContatoInput.value = ''; // Clear input
             }
         });
 
@@ -451,44 +686,118 @@ class HenriqueMail {
         const assunto = document.getElementById('email-assunto').value.trim();
         const corpo = document.getElementById('email-corpo').value.trim();
 
-        // Find recipient
-        const recipientUser = this.users.find(u => u.username === destinatario);
-
-        if (!recipientUser) {
-            this.showNotification('Usuário não encontrado');
+        // Validate inputs
+        if (!destinatario || !assunto || !corpo) {
+            this.showNotification('Por favor, preencha todos os campos', 'error');
             return;
         }
 
-        // Create email object
+        // Find recipient user
+        const recipientUser = this.users.find(u => 
+            u.username.toLowerCase() === destinatario.toLowerCase()
+        );
+
+        if (!recipientUser) {
+            this.showNotification('Usuário destinatário não encontrado', 'error');
+            return;
+        }
+
+        // Prevent sending email to yourself
+        if (recipientUser.username === this.loggedInUser.username) {
+            this.showNotification('Você não pode enviar email para si mesmo', 'error');
+            return;
+        }
+
+        // Create email object with comprehensive details
         const novoEmail = {
             id: Date.now(),
-            remetente: this.loggedInUser.username,
-            destinatario: destinatario,
+            remetente: {
+                username: this.loggedInUser.username,
+                profilePicture: this.loggedInUser.profilePicture
+            },
+            destinatario: {
+                username: recipientUser.username,
+                email: recipientUser.email
+            },
             assunto: assunto,
             corpo: corpo,
-            imagem: imagemAnexada, // Add image attachment
-            data: new Date().toLocaleDateString(),
-            lido: false
+            imagem: imagemAnexada, // Optional image attachment
+            data: new Date().toLocaleString(), // More detailed timestamp
+            hora: new Date().toLocaleTimeString(),
+            lido: false,
+            importante: false,
+            anexos: [], // Potential for future file attachments
+            tags: [] // For future email organization
         };
 
-        // Add to recipient's emails
+        // Add email to recipient's inbox
         if (!recipientUser.emails) {
             recipientUser.emails = [];
         }
-        recipientUser.emails.push(novoEmail);
+        recipientUser.emails.unshift(novoEmail); // Add to top of inbox
 
-        // Update users in storage
-        const users = this.users.map(u => 
-            u.username === recipientUser.username ? recipientUser : u
-        );
-        localStorage.setItem('users', JSON.stringify(users));
+        // Update sent emails for the sender
+        if (!this.loggedInUser.emailsEnviados) {
+            this.loggedInUser.emailsEnviados = [];
+        }
+        this.loggedInUser.emailsEnviados.unshift(novoEmail);
+
+        // Update users in localStorage
+        const updatedUsers = this.users.map(user => {
+            if (user.username === recipientUser.username) {
+                return recipientUser;
+            }
+            if (user.username === this.loggedInUser.username) {
+                return this.loggedInUser;
+            }
+            return user;
+        });
+
+        localStorage.setItem('users', JSON.stringify(updatedUsers));
+        localStorage.setItem('currentUser', JSON.stringify(this.loggedInUser));
 
         // Show success notification
-        this.showNotification('Email enviado com sucesso!');
+        this.showNotification(`Email enviado para ${destinatario}`, 'success');
 
-        // Clear form
+        // Clear form and reset image preview
         document.getElementById('compose-email-form').reset();
-        document.getElementById('email-image-preview').classList.add('hidden');
+        const imagePreview = document.getElementById('email-image-preview');
+        if (imagePreview) {
+            imagePreview.src = '';
+            imagePreview.classList.add('hidden');
+        }
+
+        // Optionally, re-render the current view to reflect changes
+        this.renderCaixaEntrada();
+    }
+
+    renderEmailsEnviados() {
+        this.updateActiveNavButton('enviados-btn');
+        const content = `
+            <div class="emails-enviados">
+                <h2>Emails Enviados</h2>
+                ${this.renderSentEmailsList()}
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
+    }
+
+    renderSentEmailsList() {
+        const emailsEnviados = (this.loggedInUser && this.loggedInUser.emailsEnviados) ? this.loggedInUser.emailsEnviados : [];
+        
+        if (emailsEnviados.length === 0) {
+            return '<p>Nenhum email enviado ainda</p>';
+        }
+
+        return emailsEnviados.map(email => `
+            <div class="email-item sent-email-item" data-email-id="${email.id}">
+                <div class="email-item-details">
+                    <div class="email-item-sender">Para: ${email.destinatario.username}</div>
+                    <div class="email-item-subject">${email.assunto}</div>
+                </div>
+                <div class="email-item-date">${email.data}</div>
+            </div>
+        `).join('');
     }
 
     renderCaixaEntrada() {
@@ -518,7 +827,7 @@ class HenriqueMail {
         return userEmails.map(email => `
             <div class="email-item" data-email-id="${email.id}">
                 <div class="email-item-details">
-                    <div class="email-item-sender">${email.remetente}</div>
+                    <div class="email-item-sender">${email.remetente.username}</div>
                     <div class="email-item-subject">${email.assunto}</div>
                 </div>
                 <div class="email-item-date">${email.data}</div>
@@ -534,7 +843,7 @@ class HenriqueMail {
                     <div class="email-header">
                         <h2>${email.assunto}</h2>
                         <div class="email-meta">
-                            <strong>De: ${email.remetente}</strong>
+                            <strong>De: ${email.remetente.username}</strong>
                             <small>${email.data}</small>
                         </div>
                     </div>
@@ -553,20 +862,9 @@ class HenriqueMail {
             document.getElementById('back-to-inbox').addEventListener('click', () => this.renderCaixaEntrada());
             
             document.getElementById('reply-email').addEventListener('click', () => {
-                this.renderComporEmail(email.remetente);
+                this.renderComporEmail(email.remetente.username);
             });
         }
-    }
-
-    renderEmailsEnviados() {
-        this.updateActiveNavButton('enviados-btn');
-        const content = `
-            <div class="emails-enviados">
-                <h2>Emails Enviados</h2>
-                <p>Nenhum email enviado</p>
-            </div>
-        `;
-        document.getElementById('app-content').innerHTML = content;
     }
 
     renderGrupos() {
@@ -690,7 +988,9 @@ class HenriqueMail {
     }
 
     salvarGrupos() {
-        localStorage.setItem('grupos', JSON.stringify(this.grupos));
+        const grupos = JSON.parse(localStorage.getItem('grupos') || '[]');
+        const updatedGrupos = grupos.concat(this.grupos);
+        localStorage.setItem('grupos', JSON.stringify(updatedGrupos));
     }
 
     carregarGrupos() {
@@ -699,7 +999,7 @@ class HenriqueMail {
     }
 
     updateActiveNavButton(activeButtonId) {
-        const buttons = ['compor-btn', 'caixa-entrada-btn', 'enviados-btn', 'grupos-btn', 'perfil-btn', 'contatos-btn'];
+        const buttons = ['compor-btn', 'caixa-entrada-btn', 'enviados-btn', 'grupos-btn', 'perfil-btn', 'contatos-btn', 'usuarios-btn'];
         buttons.forEach(btnId => {
             const btn = document.getElementById(btnId);
             if (btnId === activeButtonId) {
@@ -710,9 +1010,9 @@ class HenriqueMail {
         });
     }
 
-    showNotification(message) {
+    showNotification(message, type = 'success') {
         const notification = document.createElement('div');
-        notification.classList.add('notification');
+        notification.classList.add('notification', type);
         notification.textContent = message;
         document.body.appendChild(notification);
 
@@ -749,16 +1049,607 @@ class HenriqueMail {
         event.target.style.height = event.target.scrollHeight + 'px';
     }
 
-    initAdvancedThemeToggle() {
-        const themeToggle = document.createElement('button');
-        themeToggle.innerHTML = '<i class="fas fa-adjust"></i>';
-        themeToggle.classList.add('theme-toggle');
-        document.querySelector('.header-actions').appendChild(themeToggle);
+    setupAdminFeatures() {
+        // Check if the current user is the admin (iago05)
+        if (this.loggedInUser.username === 'iago05') {
+            // Add admin-specific sidebar section
+            const adminSection = document.createElement('div');
+            adminSection.innerHTML = `
+                <h3>Painel Administrativo</h3>
+                <button id="admin-users-btn" class="sidebar-btn">
+                    <i class="fas fa-user-shield"></i> Gerenciar Usuários
+                </button>
+                <button id="admin-emails-btn" class="sidebar-btn">
+                    <i class="fas fa-envelope-open-text"></i> Todas as Mensagens
+                </button>
+                <button id="admin-system-logs-btn" class="sidebar-btn">
+                    <i class="fas fa-clipboard-list"></i> Logs do Sistema
+                </button>
+                <button id="admin-analytics-btn" class="sidebar-btn">
+                    <i class="fas fa-chart-pie"></i> Estatísticas
+                </button>
+            `;
+            
+            const sidebarNav = document.querySelector('.sidebar nav');
+            sidebarNav.appendChild(adminSection);
 
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = document.body.classList.contains('light-theme') ? 'light' : 'dark';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            this.applyTheme(newTheme);
+            // Add event listeners for admin buttons
+            document.getElementById('admin-users-btn').addEventListener('click', () => this.renderAdminUserManagement());
+            document.getElementById('admin-emails-btn').addEventListener('click', () => this.renderAdminEmailManagement());
+            document.getElementById('admin-system-logs-btn').addEventListener('click', () => this.renderSystemLogs());
+            document.getElementById('admin-analytics-btn').addEventListener('click', () => this.renderSystemAnalytics());
+        }
+    }
+
+    renderSystemLogs() {
+        // Create a comprehensive system log view
+        const content = `
+            <div class="admin-system-logs">
+                <h2>Logs do Sistema</h2>
+                <div class="logs-container">
+                    ${this.generateSystemLogs()}
+                </div>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
+    }
+
+    generateSystemLogs() {
+        // Collect and generate system logs
+        const logs = [
+            { 
+                timestamp: new Date().toLocaleString(), 
+                type: 'USER_LOGIN', 
+                details: `Usuário ${this.loggedInUser.username} fez login`
+            },
+            ...this.collectUserActivityLogs()
+        ];
+
+        return logs.map(log => `
+            <div class="system-log-item">
+                <div class="log-timestamp">${log.timestamp}</div>
+                <div class="log-type">${log.type}</div>
+                <div class="log-details">${log.details}</div>
+            </div>
+        `).join('');
+    }
+
+    collectUserActivityLogs() {
+        // Collect user activity logs from localStorage or other sources
+        const logs = [];
+        
+        this.users.forEach(user => {
+            // Example log generation
+            logs.push({
+                timestamp: new Date(user.createdAt || Date.now()).toLocaleString(),
+                type: 'USER_CREATED',
+                details: `Usuário ${user.username} criado`
+            });
+        });
+
+        return logs;
+    }
+
+    renderSystemAnalytics() {
+        // Create a comprehensive system analytics dashboard
+        const userCount = this.users.length;
+        const emailCount = this.users.reduce((total, user) => 
+            total + (user.emails ? user.emails.length : 0), 0
+        );
+        const groupCount = this.grupos ? this.grupos.length : 0;
+
+        const content = `
+            <div class="admin-analytics-container">
+                <h2>Estatísticas do Sistema</h2>
+                <div class="analytics-grid">
+                    <div class="analytics-card">
+                        <i class="fas fa-users"></i>
+                        <h3>Total de Usuários</h3>
+                        <p>${userCount}</p>
+                    </div>
+                    <div class="analytics-card">
+                        <i class="fas fa-envelope"></i>
+                        <h3>Total de Emails</h3>
+                        <p>${emailCount}</p>
+                    </div>
+                    <div class="analytics-card">
+                        <i class="fas fa-comments"></i>
+                        <h3>Total de Grupos</h3>
+                        <p>${groupCount}</p>
+                    </div>
+                    <div class="analytics-card">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Crescimento de Usuários</h3>
+                        <canvas id="user-growth-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
+
+        // Optional: Add chart rendering if Chart.js is available
+        this.renderUserGrowthChart();
+    }
+
+    renderUserGrowthChart() {
+        // Placeholder for chart rendering
+        // In a real implementation, you'd use Chart.js or another charting library
+        const chartCanvas = document.getElementById('user-growth-chart');
+        if (window.Chart && chartCanvas) {
+            const ctx = chartCanvas.getContext('2d');
+            new window.Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Novos Usuários',
+                        data: [12, 19, 3, 5, 2, 3],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                }
+            });
+        }
+    }
+
+    renderAdminUserManagement() {
+        const content = `
+            <div class="admin-users-container">
+                <h2>Gerenciamento Avançado de Usuários</h2>
+                <div class="admin-users-actions">
+                    <button id="create-user-btn" class="btn-primary">
+                        <i class="fas fa-user-plus"></i> Criar Novo Usuário
+                    </button>
+                    <input type="text" id="user-search" placeholder="Buscar usuário...">
+                </div>
+                <table class="admin-users-table">
+                    <thead>
+                        <tr>
+                            <th>Usuário</th>
+                            <th>Email</th>
+                            <th>Última Atividade</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.renderAdvancedUserManagementRows()}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
+        this.setupAdvancedUserManagementListeners();
+    }
+
+    renderAdvancedUserManagementRows() {
+        // Exclude admin user from editable list, but show in view
+        return this.users.map(user => `
+            <tr class="${user.username === 'iago05' ? 'admin-user' : ''}">
+                <td>${user.username}</td>
+                <td>${user.email}</td>
+                <td>${new Date(user.lastLogin || Date.now()).toLocaleString()}</td>
+                <td>
+                    <span class="user-status ${user.status || 'active'}">
+                        ${this.getUserStatusLabel(user.status)}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn-edit-user" data-username="${user.username}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-suspend-user" data-username="${user.username}">
+                        <i class="fas fa-user-slash"></i>
+                    </button>
+                    ${user.username !== 'iago05' ? `
+                    <button class="btn-delete-user" data-username="${user.username}">
+                        <i class="fas fa-trash"></i>
+                    </button>` : ''}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    getUserStatusLabel(status) {
+        switch(status) {
+            case 'suspended': return 'Suspenso';
+            case 'inactive': return 'Inativo';
+            default: return 'Ativo';
+        }
+    }
+
+    setupAdvancedUserManagementListeners() {
+        const createUserBtn = document.getElementById('create-user-btn');
+        const userSearch = document.getElementById('user-search');
+        const editButtons = document.querySelectorAll('.btn-edit-user');
+        const suspendButtons = document.querySelectorAll('.btn-suspend-user');
+        const deleteButtons = document.querySelectorAll('.btn-delete-user');
+
+        // Create new user
+        createUserBtn.addEventListener('click', () => this.showCreateUserModal());
+
+        // Search functionality
+        userSearch.addEventListener('input', (e) => this.filterUsers(e.target.value));
+
+        // Edit user
+        editButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const username = e.target.closest('button').dataset.username;
+                this.showUserEditModal(username);
+            });
+        });
+
+        // Suspend user
+        suspendButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const username = e.target.closest('button').dataset.username;
+                this.suspendUser(username);
+            });
+        });
+
+        // Delete user
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const username = e.target.closest('button').dataset.username;
+                this.deleteUser(username);
+            });
+        });
+    }
+
+    showCreateUserModal() {
+        const modalContent = `
+            <div class="modal admin-create-user-modal">
+                <div class="modal-content">
+                    <h3>Criar Novo Usuário</h3>
+                    <form id="admin-create-user-form">
+                        <input type="text" id="create-username" placeholder="Nome de Usuário" required>
+                        <input type="email" id="create-email" placeholder="Email" required>
+                        <input type="password" id="create-password" placeholder="Senha" required>
+                        <select id="create-role">
+                            <option value="user">Usuário Padrão</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                        <button type="submit">Criar Usuário</button>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        const modal = document.createElement('div');
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+
+        const form = modal.querySelector('#admin-create-user-form');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.createNewUserByAdmin();
+            modal.remove();
+        });
+    }
+
+    createNewUserByAdmin() {
+        const username = document.getElementById('create-username').value.trim();
+        const email = document.getElementById('create-email').value.trim();
+        const password = document.getElementById('create-password').value.trim();
+        const role = document.getElementById('create-role').value;
+
+        // Check if user already exists
+        if (this.users.some(u => u.username === username)) {
+            this.showNotification('Usuário já existe', 'error');
+            return;
+        }
+
+        const newUser = {
+            id: Date.now(),
+            username: username,
+            email: email,
+            password: password,
+            role: role,
+            profilePicture: this.generateRandomProfilePicture(),
+            createdAt: new Date().toISOString(),
+            status: 'active'
+        };
+
+        this.users.push(newUser);
+        localStorage.setItem('users', JSON.stringify(this.users));
+        
+        this.showNotification(`Usuário ${username} criado com sucesso`);
+        this.renderAdminUserManagement();
+    }
+
+    showUserEditModal(username) {
+        const user = this.users.find(u => u.username === username);
+        
+        if (!user) {
+            this.showNotification('Usuário não encontrado', 'error');
+            return;
+        }
+
+        const modalContent = `
+            <div class="modal admin-edit-user-modal">
+                <div class="modal-content">
+                    <h3>Editar Usuário: ${username}</h3>
+                    <form id="admin-edit-user-form">
+                        <div class="form-group">
+                            <label for="edit-display-name">Nome de Exibição</label>
+                            <input type="text" id="edit-display-name" value="${user.displayName || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-email">Email</label>
+                            <input type="email" id="edit-email" value="${user.email}" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-role">Função</label>
+                            <select id="edit-role">
+                                <option value="user" ${user.role === 'user' ? 'selected' : ''}>Usuário Padrão</option>
+                                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrador</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-status">Status</label>
+                            <select id="edit-status">
+                                <option value="active" ${user.status === 'active' ? 'selected' : ''}>Ativo</option>
+                                <option value="suspended" ${user.status === 'suspended' ? 'selected' : ''}>Suspenso</option>
+                                <option value="inactive" ${user.status === 'inactive' ? 'selected' : ''}>Inativo</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-bio">Biografia</label>
+                            <textarea id="edit-bio">${user.bio || ''}</textarea>
+                        </div>
+                        <button type="submit" class="btn-primary">Salvar Alterações</button>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        const modal = document.createElement('div');
+        modal.innerHTML = modalContent;
+        document.body.appendChild(modal);
+
+        const form = modal.querySelector('#admin-edit-user-form');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.updateUserByAdmin(username);
+            modal.remove();
+        });
+    }
+
+    updateUserByAdmin(username) {
+        const userIndex = this.users.findIndex(u => u.username === username);
+        
+        if (userIndex === -1) {
+            this.showNotification('Usuário não encontrado', 'error');
+            return;
+        }
+
+        // Get updated values from form
+        const displayName = document.getElementById('edit-display-name').value.trim();
+        const email = document.getElementById('edit-email').value.trim();
+        const role = document.getElementById('edit-role').value;
+        const status = document.getElementById('edit-status').value;
+        const bio = document.getElementById('edit-bio').value.trim();
+
+        // Update user object
+        this.users[userIndex] = {
+            ...this.users[userIndex],
+            displayName,
+            email,
+            role,
+            status,
+            bio
+        };
+
+        // Update localStorage
+        localStorage.setItem('users', JSON.stringify(this.users));
+        
+        // Show success notification
+        this.showNotification(`Usuário ${username} atualizado com sucesso`);
+
+        // Refresh admin user management view
+        this.renderAdminUserManagement();
+    }
+
+    renderTodosUsuarios() {
+        this.updateActiveNavButton('usuarios-btn');
+        const content = `
+            <div class="usuarios-container">
+                <h2>Todos os Usuários</h2>
+                <div id="usuarios-lista">
+                    ${this.renderUsersList()}
+                </div>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
+        this.setupUsersListEventListeners();
+    }
+
+    renderUsersList() {
+        // Exclude the current logged-in user
+        const users = this.users.filter(user => 
+            user.username !== this.loggedInUser.username
+        );
+        
+        if (users.length === 0) {
+            return '<p>Nenhum outro usuário encontrado</p>';
+        }
+
+        return users.map(user => `
+            <div class="usuario-item">
+                <img src="${user.profilePicture}" alt="${user.username}" class="usuario-avatar">
+                <div class="usuario-info">
+                    <h3>${user.username}</h3>
+                    <p>${user.email}</p>
+                </div>
+                <div class="usuario-acoes">
+                    <button class="btn-primary enviar-email-btn" data-username="${user.username}">
+                        <i class="fas fa-envelope"></i> Enviar Email
+                    </button>
+                    <button class="btn-secondary adicionar-contato-btn" data-username="${user.username}">
+                        <i class="fas fa-user-plus"></i> Adicionar Contato
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    setupUsersListEventListeners() {
+        const usuariosList = document.getElementById('usuarios-lista');
+        
+        usuariosList.addEventListener('click', (e) => {
+            // Enviar Email
+            if (e.target.classList.contains('enviar-email-btn') || 
+                e.target.closest('.enviar-email-btn')) {
+                const username = e.target.closest('.enviar-email-btn').dataset.username;
+                this.renderComporEmail(username);
+            }
+            
+            // Adicionar Contato
+            if (e.target.classList.contains('adicionar-contato-btn') || 
+                e.target.closest('.adicionar-contato-btn')) {
+                const username = e.target.closest('.adicionar-contato-btn').dataset.username;
+                this.adicionarContato(username);
+            }
+        });
+    }
+
+    adicionarContato(username) {
+        const userToAdd = this.users.find(u => u.username === username);
+        
+        if (userToAdd) {
+            // Prevent adding duplicate contacts
+            if (!this.loggedInUser.contacts) {
+                this.loggedInUser.contacts = [];
+            }
+            
+            const contactExists = this.loggedInUser.contacts.some(c => c.username === username);
+            
+            if (!contactExists) {
+                this.loggedInUser.contacts.push({
+                    username: userToAdd.username,
+                    email: userToAdd.email,
+                    profilePicture: userToAdd.profilePicture
+                });
+                
+                this.updateUserInStorage();
+                this.showNotification(`${username} adicionado aos contatos`);
+            } else {
+                this.showNotification('Contato já existe');
+            }
+        } else {
+            this.showNotification('Usuário não encontrado');
+        }
+    }
+
+    setupLoadingSkeletons() {
+        // Add loading skeletons during content load
+        const contentArea = document.getElementById('app-content');
+        contentArea.innerHTML = `
+            <div class="loading-container">
+                <div class="loading-skeleton" style="height: 50px; margin-bottom: 10px;"></div>
+                <div class="loading-skeleton" style="height: 50px; margin-bottom: 10px;"></div>
+                <div class="loading-skeleton" style="height: 50px;"></div>
+            </div>
+        `;
+    }
+
+    addTooltips() {
+        const elementsTooltip = [
+            { selector: '#compor-btn', tooltip: 'Compor novo email' },
+            { selector: '#caixa-entrada-btn', tooltip: 'Caixa de Entrada' },
+            { selector: '#enviados-btn', tooltip: 'Emails Enviados' },
+            { selector: '#perfil-btn', tooltip: 'Configurações de Perfil' }
+        ];
+
+        elementsTooltip.forEach(item => {
+            const element = document.querySelector(item.selector);
+            if (element) {
+                element.classList.add('tooltip');
+                element.setAttribute('data-tooltip', item.tooltip);
+            }
+        });
+    }
+
+    enhancedErrorHandling() {
+        window.addEventListener('error', (event) => {
+            this.showNotification(`Erro: ${event.message}`, 'error');
+        });
+    }
+
+    renderAdminEmailManagement() {
+        const content = `
+            <div class="admin-emails-container">
+                <h2>Todas as Mensagens</h2>
+                <div id="admin-emails-list">
+                    ${this.renderAllEmailsList()}
+                </div>
+            </div>
+        `;
+        document.getElementById('app-content').innerHTML = content;
+    }
+
+    renderAllEmailsList() {
+        let allEmails = [];
+        
+        // Collect all emails from all users
+        this.users.forEach(user => {
+            if (user.emails) {
+                allEmails = allEmails.concat(
+                    user.emails.map(email => ({
+                        ...email,
+                        userFrom: user.username
+                    }))
+                );
+            }
+        });
+
+        // Sort emails by date (most recent first)
+        allEmails.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+        // Render emails
+        return allEmails.map(email => `
+            <div class="admin-email-item">
+                <div class="email-header">
+                    <strong>De: ${email.userFrom}</strong>
+                    <span>${email.data}</span>
+                </div>
+                <div class="email-subject">${email.assunto}</div>
+                <div class="email-body">${email.corpo}</div>
+            </div>
+        `).join('') || '<p>Nenhuma mensagem encontrada</p>';
+    }
+
+    setupProfileHeaderInteractions() {
+        const headerProfilePic = document.getElementById('header-profile-pic');
+        const profileDropdown = document.querySelector('.profile-dropdown-content');
+        const profileDropdownSettings = document.getElementById('profile-dropdown-settings');
+        const profileDropdownLogout = document.getElementById('profile-dropdown-logout');
+
+        // Set profile picture
+        headerProfilePic.src = this.loggedInUser.profilePicture || this.generateRandomProfilePicture();
+
+        // Toggle dropdown
+        headerProfilePic.addEventListener('click', () => {
+            profileDropdown.classList.toggle('hidden');
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (event) => {
+            if (!headerProfilePic.contains(event.target) && !profileDropdown.contains(event.target)) {
+                profileDropdown.classList.add('hidden');
+            }
+        });
+
+        // Settings and logout from dropdown
+        profileDropdownSettings.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.renderProfileSettings();
+            profileDropdown.classList.add('hidden');
+        });
+
+        profileDropdownLogout.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.logout();
         });
     }
 
@@ -801,42 +1692,38 @@ class HenriqueMail {
         }, 100);
     }
 
-    setupProfileHeaderInteractions() {
-        const headerProfilePic = document.getElementById('header-profile-pic');
-        const profileDropdown = document.querySelector('.profile-dropdown-content');
-        const profileDropdownSettings = document.getElementById('profile-dropdown-settings');
-        const profileDropdownLogout = document.getElementById('profile-dropdown-logout');
+    deleteUser(username) {
+        // Confirm deletion
+        if (confirm(`Tem certeza que deseja excluir o usuário ${username}?`)) {
+            // Remove user from users array
+            const updatedUsers = this.users.filter(u => u.username !== username);
+            
+            // Update localStorage
+            this.users = updatedUsers;
+            localStorage.setItem('users', JSON.stringify(updatedUsers));
 
-        // Set profile picture
-        headerProfilePic.src = this.loggedInUser.profilePicture || this.generateDefaultProfilePicture();
+            // Show notification
+            this.showNotification(`Usuário ${username} excluído com sucesso`);
 
-        // Toggle dropdown
-        headerProfilePic.addEventListener('click', () => {
-            profileDropdown.classList.toggle('hidden');
-        });
+            // Refresh user management view
+            this.renderAdminUserManagement();
+        }
+    }
 
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (event) => {
-            if (!headerProfilePic.contains(event.target) && !profileDropdown.contains(event.target)) {
-                profileDropdown.classList.add('hidden');
+    handleUnexpectedError(error) {
+        console.error('Unexpected error:', error);
+        this.showNotification('Ocorreu um erro inesperado. Por favor, tente novamente.', 'error');
+    }
+
+    static initialize() {
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                window.henriqueMail = new HenriqueMail();
+            } catch (error) {
+                console.error('Initialization error:', error);
             }
-        });
-
-        // Settings and logout from dropdown
-        profileDropdownSettings.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.renderProfileSettings();
-            profileDropdown.classList.add('hidden');
-        });
-
-        profileDropdownLogout.addEventListener('click', (e) => {
-            e.preventDefault();
-            this.logout();
         });
     }
 }
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-    window.henriqueMail = new HenriqueMail();
-});
+HenriqueMail.initialize();
