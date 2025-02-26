@@ -20,9 +20,25 @@
                 <button type="submit">Entrar</button>
             </form>
             <form id="register-form" class="auth-form hidden">
-                <input type="text" id="register-username" placeholder="Nome de Usuário" required>
-                <input type="password" id="register-password" placeholder="Senha" required>
-                <input type="password" id="confirm-password" placeholder="Confirmar Senha" required>
+                <div class="profile-creation-container">
+                    <div class="profile-picture-selection">
+                        <img id="register-profile-picture" src="" alt="Profile Picture" class="profile-preview">
+                        <div class="profile-picture-options">
+                            <button type="button" id="generate-profile-btn">Gerar Ícone</button>
+                            <label class="file-upload-btn">
+                                Upload
+                                <input type="file" id="profile-picture-upload" accept="image/*">
+                            </label>
+                        </div>
+                    </div>
+                    <div class="register-form-inputs">
+                        <input type="text" id="register-username" placeholder="Nome de Usuário" required>
+                        <input type="password" id="register-password" placeholder="Senha" required>
+                        <input type="password" id="confirm-password" placeholder="Confirmar Senha" required>
+                        <input type="text" id="register-display-name" placeholder="Nome de Exibição" required>
+                        <textarea id="register-bio" placeholder="Sobre você (opcional)"></textarea>
+                    </div>
+                </div>
                 <button type="submit">Registrar</button>
             </form>
             <div id="auth-message" class="message"></div>
@@ -40,6 +56,9 @@
                 </button>
                 <button id="caixa-entrada-btn" class="sidebar-btn active">
                     <i class="fas fa-inbox"></i> Caixa de Entrada
+                </button>
+                <button id="usuarios-btn" class="sidebar-btn">
+                    <i class="fas fa-users"></i> Todos Usuários
                 </button>
                 <button id="grupos-btn" class="sidebar-btn">
                     <i class="fas fa-users"></i> Grupos
@@ -59,9 +78,18 @@
         <div class="main-content">
             <header class="app-header">
                 <div class="header-actions">
-                    <button class="header-btn"><i class="fas fa-search"></i></button>
-                    <button class="header-btn"><i class="fas fa-filter"></i></button>
-                    <button id="logout-btn" class="header-btn"><i class="fas fa-sign-out-alt"></i></button>
+                    <button class="header-btn tooltip" data-tooltip="Pesquisar">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    <button class="header-btn tooltip" data-tooltip="Filtrar">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                    <button id="theme-toggle" class="header-btn tooltip" data-tooltip="Alternar Tema">
+                        <i class="fas fa-adjust"></i>
+                    </button>
+                    <button id="logout-btn" class="header-btn tooltip" data-tooltip="Sair">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
                 </div>
                 <div class="user-profile-header">
                     <div class="user-profile-dropdown">
