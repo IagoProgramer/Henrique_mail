@@ -18,7 +18,7 @@ class HenriqueMail {
                 password: 'admin123', // Set a default admin password
                 displayName: 'Iago Admin',
                 email: 'iago05@henriquemail.com',
-                profilePicture: this.generateDefaultProfilePicture(),
+                profilePicture: this.generateRandomProfilePicture(),
                 role: 'admin', // Add admin role
                 theme: 'dark',
                 permissions: {
@@ -109,32 +109,91 @@ class HenriqueMail {
 
         // Validate input
         if (!username || !password) {
-            messageEl.textContent = 'Por favor, preencha todos os campos';
-            messageEl.classList.add('error');
+            this.showLoginError('Por favor, preencha todos os campos');
             return;
         }
 
-        // Find user
-        const user = this.users.find(u => 
-            u.username.toLowerCase() === username.toLowerCase() && 
-            u.password === password
-        );
+        // Use fetch for login
+        fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Successful login
+                localStorage.setItem('authToken', data.token);
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+                
+                // Hide login page and show main app
+                document.getElementById('login-page').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                
+                // Initialize main app view
+                this.loggedInUser = data.user;
+                this.showMainApp();
+                
+                // Show welcome notification
+                this.showNotification(`Bem-vindo, ${data.user.username}!`);
+            } else {
+                // Login failed
+                this.showLoginError(data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Login error:', error);
+            this.showLoginError('Erro de conexão. Tente novamente.');
+        });
+    }
 
-        if (user) {
-            // Successful login
-            this.loggedInUser = user;
-            localStorage.setItem('currentUser', JSON.stringify(user));
+    showLoginError(message) {
+        const messageEl = document.getElementById('auth-message');
+        messageEl.textContent = message;
+        messageEl.classList.add('error');
+        
+        // Add shake animation to login box
+        const loginBox = document.querySelector('.login-box');
+        loginBox.classList.add('shake-animation');
+        
+        // Remove shake animation after 0.5 seconds
+        setTimeout(() => {
+            loginBox.classList.remove('shake-animation');
+        }, 500);
+    }
+
+    addLoginErrorStyles() {
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+                20%, 40%, 60%, 80% { transform: translateX(10px); }
+            }
             
-            // Hide login page and show main app
-            document.getElementById('login-page').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
+            .shake-animation {
+                animation: shake 0.5s ease-in-out;
+            }
+        `;
+        document.head.appendChild(styleSheet);
+    }
+
+    initializeApp() {
+        try {
+            this.setupAuthEventListeners();
+            this.checkPreviousLogin();
+            this.setupProfilePictureGeneration();
+            this.carregarGrupos();
+            this.addLoginErrorStyles(); // Add this line
             
-            // Initialize main app view
-            this.showMainApp();
-        } else {
-            // Login failed
-            messageEl.textContent = 'Usuário ou senha incorretos';
-            messageEl.classList.add('error');
+            // Add error handling
+            window.addEventListener('error', (event) => {
+                this.handleUnexpectedError(event.error);
+            });
+        } catch (error) {
+            this.handleUnexpectedError(error);
         }
     }
 
@@ -236,33 +295,71 @@ class HenriqueMail {
     }
 
     generateRandomProfilePicture() {
-        // Generate a more detailed SVG profile picture
+        // More sophisticated profile picture generation
         const colors = [
             '#0078d4', '#6264a7', '#13a10e', '#ff4d4d', 
-            '#ff6b6b', '#4ecdc4', '#45b7d1', '#f95738'
+            '#ff6b6b', '#4ecdc4', '#45b7d1', '#f95738',
+            '#8e44ad', '#2c3e50', '#27ae60', '#d35400'
         ];
+        
         const bgColor = colors[Math.floor(Math.random() * colors.length)];
         const initials = this.generateInitials();
 
         return `data:image/svg+xml;utf8,
             <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
-                <rect width="200" height="200" fill="${bgColor}"/>
-                <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" 
-                      fill="white" font-size="80" font-family="Arial, sans-serif">
+                <defs>
+                    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" style="stop-color:${bgColor};stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:${this.darkenColor(bgColor)};stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                <rect width="200" height="200" fill="url(#gradient)"/>
+                <text x="50%" y="50%" 
+                      dominant-baseline="middle" 
+                      text-anchor="middle" 
+                      fill="white" 
+                      font-size="80" 
+                      font-weight="bold" 
+                      font-family="Arial, sans-serif">
                     ${initials}
                 </text>
+                <circle cx="50%" cy="50%" r="90" 
+                        fill="none" 
+                        stroke="rgba(255,255,255,0.2)" 
+                        stroke-width="3"/>
             </svg>`;
     }
 
+    darkenColor(hex) {
+        // Helper method to darken a hex color
+        const num = parseInt(hex.slice(1), 16);
+        const amt = 20;
+        const R = (num >> 16) - amt;
+        const G = ((num >> 8) & 0x00FF) - amt;
+        const B = (num & 0x0000FF) - amt;
+        return `#${(0x1000000 + (R<0?0:R) * 0x10000 + 
+                   (G<0?0:G) * 0x100 + 
+                   (B<0?0:B)).toString(16).slice(1)}`;
+    }
+
     generateInitials() {
-        // Get initials from username or display a random letter
+        // More robust initial generation
         const registerUsername = document.getElementById('register-username');
+        const registerDisplayName = document.getElementById('register-display-name');
+
+        if (registerDisplayName && registerDisplayName.value.trim()) {
+            return registerDisplayName.value.trim().split(' ')
+                .map(word => word[0].toUpperCase())
+                .slice(0, 2)
+                .join('');
+        }
+
         if (registerUsername && registerUsername.value.trim()) {
-            return registerUsername.value.trim()[0].toUpperCase();
+            return registerUsername.value.trim().slice(0, 2).toUpperCase();
         }
         
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        return letters[Math.floor(Math.random() * letters.length)];
+        return letters.slice(0, 2)[Math.floor(Math.random() * 2)];
     }
 
     checkPreviousLogin() {
@@ -435,6 +532,7 @@ class HenriqueMail {
     }
 
     setupProfileSettingsEventListeners() {
+        // Enhanced profile settings event listeners
         const avatarUpload = document.getElementById('avatar-upload');
         const profileAvatar = document.querySelector('.profile-avatar-large');
         const profileForm = document.getElementById('profile-details-form');
@@ -443,33 +541,66 @@ class HenriqueMail {
         const closeModalBtn = changePasswordModal.querySelector('.close-modal');
         const changePasswordForm = document.getElementById('change-password-form');
 
-        // Avatar upload
+        // Avatar upload with better error handling and preview
         avatarUpload.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (file) {
+                // Validate file type and size
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
+                const maxSize = 5 * 1024 * 1024; // 5MB
+
+                if (!validTypes.includes(file.type)) {
+                    this.showNotification('Tipo de arquivo inválido. Use imagens JPG, PNG, GIF ou SVG.', 'error');
+                    return;
+                }
+
+                if (file.size > maxSize) {
+                    this.showNotification('Arquivo muito grande. Máximo 5MB.', 'error');
+                    return;
+                }
+
                 const reader = new FileReader();
                 reader.onload = (event) => {
-                    // Added null checks
-                    if (profileAvatar) {
-                        profileAvatar.src = event.target.result;
-                    }
-                    
-                    if (this.loggedInUser) {
-                        this.loggedInUser.profilePicture = event.target.result;
-                        this.updateUserInStorage();
-                    }
-                    
-                    // Update header profile pic
-                    const headerProfilePic = document.getElementById('header-profile-pic');
-                    if (headerProfilePic) {
-                        headerProfilePic.src = event.target.result;
-                    }
-                };
-                
-                // Error handling for file reading
-                reader.onerror = (error) => {
-                    console.error('Error reading file:', error);
-                    this.showNotification('Erro ao carregar imagem', 'error');
+                    const img = new Image();
+                    img.onload = () => {
+                        // Resize image if needed
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const maxWidth = 300;
+                        const maxHeight = 300;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height) {
+                            if (width > maxWidth) {
+                                height *= maxWidth / width;
+                                width = maxWidth;
+                            }
+                        } else {
+                            if (height > maxHeight) {
+                                width *= maxHeight / height;
+                                height = maxHeight;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        const resizedImage = canvas.toDataURL(file.type);
+
+                        // Update profile picture
+                        if (profileAvatar) profileAvatar.src = resizedImage;
+                        if (this.loggedInUser) {
+                            this.loggedInUser.profilePicture = resizedImage;
+                            this.updateUserInStorage();
+                        }
+                        
+                        // Update header profile pic
+                        const headerProfilePic = document.getElementById('header-profile-pic');
+                        if (headerProfilePic) headerProfilePic.src = resizedImage;
+                    };
+                    img.src = event.target.result;
                 };
                 
                 reader.readAsDataURL(file);
@@ -1294,6 +1425,30 @@ class HenriqueMail {
                 this.deleteUser(username);
             });
         });
+    }
+
+    suspendUser(username) {
+        const userIndex = this.users.findIndex(u => u.username === username);
+        
+        if (userIndex === -1) {
+            this.showNotification('Usuário não encontrado', 'error');
+            return;
+        }
+
+        // Toggle user suspension status
+        if (this.users[userIndex].status === 'suspended') {
+            this.users[userIndex].status = 'active';
+            this.showNotification(`Usuário ${username} reativado`);
+        } else {
+            this.users[userIndex].status = 'suspended';
+            this.showNotification(`Usuário ${username} suspenso`);
+        }
+
+        // Update localStorage
+        localStorage.setItem('users', JSON.stringify(this.users));
+
+        // Refresh admin user management view
+        this.renderAdminUserManagement();
     }
 
     showCreateUserModal() {
