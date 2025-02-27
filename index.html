@@ -16,7 +16,12 @@
             </div>
             <form id="login-form" class="auth-form">
                 <input type="text" id="login-username" placeholder="Nome de Usuário" required>
-                <input type="password" id="login-password" placeholder="Senha" required>
+                <div class="password-container">
+                    <input type="password" id="login-password" placeholder="Senha" required>
+                    <span class="toggle-password" onclick="togglePasswordVisibility(this)">
+                        <i class="fas fa-eye-slash"></i>
+                    </span>
+                </div>
                 <button type="submit">Entrar</button>
             </form>
             <form id="register-form" class="auth-form hidden">
@@ -112,6 +117,23 @@
             </main>
         </div>
     </div>
+
+    <script>
+        function togglePasswordVisibility(element) {
+            const passwordInput = element.previousElementSibling;
+            const icon = element.querySelector('i');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            } else {
+                passwordInput.type = 'password';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            }
+        }
+    </script>
 
     <script src="app.js"></script>
 </body>
